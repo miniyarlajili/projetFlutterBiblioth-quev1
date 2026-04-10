@@ -36,6 +36,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
     if (!_formKey.currentState!.validate()) return;
 
     final auth = context.read<AuthController>();
+
     final success = await auth.register(
       email: _emailController.text.trim(),
       password: _passwordController.text.trim(),
@@ -48,11 +49,10 @@ class _RegisterScreenState extends State<RegisterScreen> {
     if (!mounted) return;
 
     if (success) {
-      // Afficher message succès → rediriger login
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
           content: Text(
-            'Inscription réussie ! En attente de validation par l\'admin.',
+            '✅ Inscription réussie ! En attente de validation par l\'admin.',
           ),
           backgroundColor: AppColors.success,
           duration: Duration(seconds: 3),
@@ -80,25 +80,40 @@ class _RegisterScreenState extends State<RegisterScreen> {
 
     return Scaffold(
       backgroundColor: AppColors.background,
+      appBar: AppBar(
+        backgroundColor: Colors.transparent,
+        elevation: 0,
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back_ios, color: AppColors.textDark),
+          onPressed: () => Navigator.pop(context),
+        ),
+      ),
       body: SafeArea(
         child: SingleChildScrollView(
-          padding: const EdgeInsets.all(24),
+          padding: const EdgeInsets.symmetric(horizontal: 24),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
+
               // ── Header ──────────────────────────────────
-              const SizedBox(height: 20),
               Center(
                 child: Container(
-                  width: 70,
-                  height: 70,
+                  width: 75,
+                  height: 75,
                   decoration: BoxDecoration(
                     color: AppColors.primary,
-                    borderRadius: BorderRadius.circular(16),
+                    borderRadius: BorderRadius.circular(18),
+                    boxShadow: [
+                      BoxShadow(
+                        color: AppColors.primary.withOpacity(0.3),
+                        blurRadius: 12,
+                        offset: const Offset(0, 4),
+                      ),
+                    ],
                   ),
                   child: const Icon(
                     Icons.menu_book_rounded,
-                    size: 40,
+                    size: 42,
                     color: Colors.white,
                   ),
                 ),
@@ -108,7 +123,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                 child: Text(
                   'Créer un compte',
                   style: TextStyle(
-                    fontSize: 24,
+                    fontSize: 26,
                     fontWeight: FontWeight.bold,
                     color: AppColors.textDark,
                   ),
@@ -123,13 +138,41 @@ class _RegisterScreenState extends State<RegisterScreen> {
                   ),
                 ),
               ),
-              const SizedBox(height: 32),
+              const SizedBox(height: 12),
+
+              // ── Note pending ─────────────────────────────
+              Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: Colors.orange.shade50,
+                  borderRadius: BorderRadius.circular(10),
+                  border: Border.all(color: Colors.orange.shade200),
+                ),
+                child: const Row(
+                  children: [
+                    Icon(Icons.info_outline,
+                        color: Colors.orange, size: 18),
+                    SizedBox(width: 8),
+                    Expanded(
+                      child: Text(
+                        'Votre compte sera activé après validation par un administrateur.',
+                        style: TextStyle(
+                          fontSize: 12,
+                          color: Colors.orange,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 24),
 
               // ── Formulaire ───────────────────────────────
               Form(
                 key: _formKey,
                 child: Column(
                   children: [
+
                     // Nom complet
                     _buildField(
                       controller: _nomController,
@@ -182,7 +225,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                     ),
                     const SizedBox(height: 28),
 
-                    // Bouton S'inscrire
+                    // ── Bouton S'inscrire ────────────────
                     SizedBox(
                       width: double.infinity,
                       height: 52,
@@ -197,9 +240,13 @@ class _RegisterScreenState extends State<RegisterScreen> {
                           elevation: 2,
                         ),
                         child: auth.isLoading
-                            ? const CircularProgressIndicator(
-                                color: Colors.white,
-                                strokeWidth: 2,
+                            ? const SizedBox(
+                                width: 22,
+                                height: 22,
+                                child: CircularProgressIndicator(
+                                  color: Colors.white,
+                                  strokeWidth: 2,
+                                ),
                               )
                             : const Text(
                                 'S\'inscrire',
@@ -212,7 +259,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                     ),
                     const SizedBox(height: 20),
 
-                    // Déjà un compte ?
+                    // ── Déjà un compte ───────────────────
                     Row(
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
@@ -236,7 +283,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                         ),
                       ],
                     ),
-                    const SizedBox(height: 20),
+                    const SizedBox(height: 30),
                   ],
                 ),
               ),
@@ -247,7 +294,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
     );
   }
 
-  // ── Widget champ texte ───────────────────────────────────
+  // ── Champ texte normal ───────────────────────────────────
   Widget _buildField({
     required TextEditingController controller,
     required String label,
@@ -264,11 +311,11 @@ class _RegisterScreenState extends State<RegisterScreen> {
         prefixIcon: Icon(icon, color: AppColors.primary),
         border: OutlineInputBorder(
           borderRadius: BorderRadius.circular(12),
-          borderSide: const BorderSide(color: AppColors.textMuted),
         ),
         focusedBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(12),
-          borderSide: const BorderSide(color: AppColors.primary, width: 2),
+          borderSide:
+              const BorderSide(color: AppColors.primary, width: 2),
         ),
         errorBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(12),
@@ -280,7 +327,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
     );
   }
 
-  // ── Widget champ mot de passe ────────────────────────────
+  // ── Champ mot de passe ───────────────────────────────────
   Widget _buildPasswordField({
     required TextEditingController controller,
     required String label,
@@ -294,21 +341,24 @@ class _RegisterScreenState extends State<RegisterScreen> {
       validator: validator,
       decoration: InputDecoration(
         labelText: label,
-        prefixIcon: const Icon(Icons.lock_outline, color: AppColors.primary),
+        prefixIcon:
+            const Icon(Icons.lock_outline, color: AppColors.primary),
         suffixIcon: IconButton(
           icon: Icon(
-            obscure ? Icons.visibility_outlined : Icons.visibility_off_outlined,
+            obscure
+                ? Icons.visibility_outlined
+                : Icons.visibility_off_outlined,
             color: AppColors.textMuted,
           ),
           onPressed: onToggle,
         ),
         border: OutlineInputBorder(
           borderRadius: BorderRadius.circular(12),
-          borderSide: const BorderSide(color: AppColors.textMuted),
         ),
         focusedBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(12),
-          borderSide: const BorderSide(color: AppColors.primary, width: 2),
+          borderSide:
+              const BorderSide(color: AppColors.primary, width: 2),
         ),
         errorBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(12),

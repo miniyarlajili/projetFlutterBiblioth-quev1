@@ -1,14 +1,14 @@
 class UserModel {
   final String uid;
-  final String nom;           // ← kima diagramme
+  final String nom;
   final String email;
-  final String role;          // 'visitor' | 'member' | 'admin'
-  final String? photoUrl;     // ← zidt
-  final DateTime dateInscription; // ← kima diagramme
-  final List<String> genresFavoris; // ← kima diagramme
-  final String status;        // 'active' | 'pending' | 'suspended'
+  final String role;
+  final String status;
+  final String? photoUrl;
   final String? phone;
+  final List<String> genresFavoris;
   final int activeLoansCount;
+  final DateTime dateInscription;
 
   UserModel({
     required this.uid,
@@ -16,11 +16,11 @@ class UserModel {
     required this.email,
     required this.role,
     required this.status,
-    required this.dateInscription,
     this.photoUrl,
     this.phone,
     this.genresFavoris = const [],
     this.activeLoansCount = 0,
+    required this.dateInscription,
   });
 
   // Firestore → UserModel
@@ -29,13 +29,15 @@ class UserModel {
       uid: uid,
       nom: map['nom'] ?? '',
       email: map['email'] ?? '',
-      role: map['role'] ?? 'member',
+      role: map['role'] ?? 'visitor',
       status: map['status'] ?? 'pending',
       photoUrl: map['photoUrl'],
       phone: map['phone'],
       genresFavoris: List<String>.from(map['genresFavoris'] ?? []),
       activeLoansCount: map['activeLoansCount'] ?? 0,
-      dateInscription: (map['dateInscription'] as dynamic).toDate(),
+      dateInscription: map['dateInscription'] != null
+          ? (map['dateInscription'] as dynamic).toDate()
+          : DateTime.now(),
     );
   }
 

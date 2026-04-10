@@ -19,7 +19,7 @@ class AuthController extends ChangeNotifier {
   Future<bool> register({
     required String email,
     required String password,
-    required String nom,        // ← sawweb
+    required String nom,        
     String? phone,
   }) async {
     _setLoading(true);
@@ -27,7 +27,7 @@ class AuthController extends ChangeNotifier {
       _currentUser = await _authService.register(
         email: email,
         password: password,
-        nom: nom,               // ← sawweb
+        nom: nom,               
         phone: phone,
       );
       _errorMessage = null;

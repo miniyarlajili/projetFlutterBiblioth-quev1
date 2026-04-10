@@ -3,8 +3,11 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 
 class AuthService {
+  // Instance de Firebase Authentication (gestion login, register, logout)
   final FirebaseAuth _auth = FirebaseAuth.instance;
+    // Instance de Cloud Firestore (base de données)
   final FirebaseFirestore _db = FirebaseFirestore.instance;
+  // Stream qui écoute les changements d'état d'authentification (login/logout)
 
   Stream<User?> get authStateChanges => _auth.authStateChanges();
 
@@ -12,10 +15,11 @@ class AuthService {
   Future<UserModel?> register({
     required String email,
     required String password,
-    required String nom,        // ← sawweb
+    required String nom,
     String? phone,
   }) async {
     try {
+       // Création d'un utilisateur dans Firebase Authentication (email + mot de passe)
       UserCredential cred = await _auth.createUserWithEmailAndPassword(
         email: email,
         password: password,
@@ -26,11 +30,11 @@ class AuthService {
       UserModel newUser = UserModel(
         uid: cred.user!.uid,
         email: email,
-        nom: nom,               // ← sawweb
+        nom: nom,
         role: 'member',
         status: 'pending',
         phone: phone,
-        dateInscription: DateTime.now(),  // ← sawweb
+        dateInscription: DateTime.now(),
       );
 
       await _db
@@ -41,6 +45,9 @@ class AuthService {
       return newUser;
     } on FirebaseAuthException catch (e) {
       throw _handleAuthError(e);
+    } catch (e) {
+      print('❌ Register error: $e');
+      throw 'Erreur inscription: $e';
     }
   }
 
@@ -60,12 +67,18 @@ class AuthService {
           .doc(cred.user!.uid)
           .get();
 
-      if (!doc.exists) throw 'Compte introuvable';
+      print('📄 Login doc exists: ${doc.exists}');
+      print('📄 Login doc data: ${doc.data()}');
+
+      if (!doc.exists) throw 'Compte introuvable dans la base de données';
 
       UserModel user = UserModel.fromMap(
         doc.data() as Map<String, dynamic>,
         cred.user!.uid,
       );
+
+      print('✅ Login role: ${user.role}');
+      print('✅ Login status: ${user.status}');
 
       if (user.status == 'suspended') {
         await _auth.signOut();
@@ -75,6 +88,10 @@ class AuthService {
       return user;
     } on FirebaseAuthException catch (e) {
       throw _handleAuthError(e);
+    } catch (e) {
+      if (e is String) rethrow;
+      print('❌ Login error: $e');
+      throw 'Erreur connexion: $e';
     }
   }
 
@@ -85,24 +102,43 @@ class AuthService {
 
   // ── Récupérer user courant ────────────────────────────────
   Future<UserModel?> getCurrentUser() async {
-    User? firebaseUser = _auth.currentUser;
-    if (firebaseUser == null) return null;
+    try {
+      User? firebaseUser = _auth.currentUser;
+      if (firebaseUser == null) {
+        print('❌ No firebase user logged in');
+        return null;
+      }
 
-    DocumentSnapshot doc = await _db
-        .collection('users')
-        .doc(firebaseUser.uid)
-        .get();
+      print('🔥 Firebase UID: ${firebaseUser.uid}');
 
-    if (!doc.exists) return null;
+      DocumentSnapshot doc = await _db
+          .collection('users')
+          .doc(firebaseUser.uid)
+          .get();
 
-    return UserModel.fromMap(
-      doc.data() as Map<String, dynamic>,
-      firebaseUser.uid,
-    );
+      print('📄 Doc exists: ${doc.exists}');
+      print('📄 Doc data: ${doc.data()}');
+
+      if (!doc.exists) return null;
+
+      UserModel user = UserModel.fromMap(
+        doc.data() as Map<String, dynamic>,
+        firebaseUser.uid,
+      );
+
+      print('✅ Role loaded: ${user.role}');
+      print('✅ Status loaded: ${user.status}');
+
+      return user;
+    } catch (e) {
+      print('❌ getCurrentUser error: $e');
+      return null;
+    }
   }
 
-  // ── Gestion erreurs ───────────────────────────────────────
+  // ── Gestion erreurs Firebase ──────────────────────────────
   String _handleAuthError(FirebaseAuthException e) {
+    print('🔥 FirebaseAuthException: ${e.code}');
     switch (e.code) {
       case 'email-already-in-use':
         return 'Cet email est déjà utilisé.';
@@ -114,10 +150,12 @@ class AuthService {
         return 'Aucun compte avec cet email.';
       case 'wrong-password':
         return 'Mot de passe incorrect.';
+      case 'invalid-credential':
+        return 'Email ou mot de passe incorrect.';
       case 'too-many-requests':
         return 'Trop de tentatives. Réessayez plus tard.';
       default:
-        return 'Une erreur est survenue. Réessayez.';
+        return 'Une erreur est survenue: ${e.code}';
     }
   }
 }
