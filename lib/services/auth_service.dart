@@ -1,6 +1,8 @@
 import '../models/user_model.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:bookshare/services/loan_service.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+
 
 class AuthService {
   // Instance de Firebase Authentication (gestion login, register, logout)
@@ -158,4 +160,23 @@ class AuthService {
         return 'Une erreur est survenue: ${e.code}';
     }
   }
+
+  Future<Map<String, int>> getMemberStats(String userId) async {
+    final loanService = LoanService();
+    return {
+      'enCours': await loanService.getActiveCount(userId),
+      'retournes': await loanService.getReturnedCount(userId),
+      'reserves': await loanService.getReservationCount(userId),
+    };
+  }
+ 
+  Future<int> getReviewCount(String userId) async {
+    final snap = await _db
+        .collection('reviews')
+        .where('userId', isEqualTo: userId)
+        .count()
+        .get();
+    return snap.count ?? 0;
+  }
+
 }

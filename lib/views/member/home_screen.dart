@@ -1,6 +1,7 @@
 import 'loans_screen.dart';
 import '../auth/login_screen.dart';
 import '../../utils/constants.dart';
+import '../member/loans_screen.dart';
 import '../../models/book_model.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
@@ -8,8 +9,6 @@ import '../../services/book_service.dart';
 import '../visitor/catalogue_screen.dart';
 import '../../controllers/auth_controller.dart';
 import 'package:bookshare/views/visitor/book_detail_screen.dart';
-
-
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -31,12 +30,12 @@ class _HomeScreenState extends State<HomeScreen> {
       _HomeTab(user: user, bookService: _bookService),
       const CatalogueScreen(),
       const LoansScreen(),
-      const _EventsPlaceholder(),
+      const _EvenementsPlaceholder(),
       const _MessagesPlaceholder(),
     ];
 
     return Scaffold(
-      backgroundColor: AppColors.background,
+      backgroundColor: const Color(0xFFEEF2F8),
       body: _screens[_selectedIndex],
       bottomNavigationBar: _buildBottomNav(),
     );
@@ -57,22 +56,22 @@ class _HomeScreenState extends State<HomeScreen> {
         BottomNavigationBarItem(
           icon: Icon(Icons.home_outlined),
           activeIcon: Icon(Icons.home),
-          label: 'Welcome',
+          label: 'Accueil',
         ),
         BottomNavigationBarItem(
           icon: Icon(Icons.menu_book_outlined),
           activeIcon: Icon(Icons.menu_book),
-          label: 'Catalog',
+          label: 'Catalogue',
         ),
         BottomNavigationBarItem(
           icon: Icon(Icons.library_books_outlined),
           activeIcon: Icon(Icons.library_books),
-          label: 'Loans',
+          label: 'Emprunts',
         ),
         BottomNavigationBarItem(
           icon: Icon(Icons.event_outlined),
           activeIcon: Icon(Icons.event),
-          label: 'Event',
+          label: 'Événements',
         ),
         BottomNavigationBarItem(
           icon: Icon(Icons.chat_bubble_outline),
@@ -85,7 +84,7 @@ class _HomeScreenState extends State<HomeScreen> {
 }
 
 // ══════════════════════════════════════════════════════════════
-// HOME TAB — Welcome + Stats + Recommended
+// HOME TAB
 // ══════════════════════════════════════════════════════════════
 class _HomeTab extends StatelessWidget {
   final dynamic user;
@@ -98,32 +97,104 @@ class _HomeTab extends StatelessWidget {
     return SafeArea(
       child: CustomScrollView(
         slivers: [
-          // ── AppBar custom ────────────────────────────────
-          SliverToBoxAdapter(
-            child: _buildHeader(context),
-          ),
+          // ── Header ───────────────────────────────────────
+          SliverToBoxAdapter(child: _buildHeader(context)),
 
-          // ── Stats bar ────────────────────────────────────
+          // ── Barre de recherche ───────────────────────────
+          const SliverToBoxAdapter(child: _SearchBar()),
+
+          // ── Stats ────────────────────────────────────────
           SliverToBoxAdapter(
             child: _StatsBar(userId: user?.uid ?? ''),
           ),
 
-          // ── Section Recommended ──────────────────────────
+          // ── SECTION 1 : RECOMMANDÉS PAR LES MEMBRES (TOP RATED) ──
           const SliverToBoxAdapter(
             child: Padding(
               padding: EdgeInsets.fromLTRB(16, 20, 16, 8),
-              child: Text(
-                'Recommanded for you',
-                style: TextStyle(
-                  fontSize: 15,
-                  fontWeight: FontWeight.bold,
-                  color: AppColors.textDark,
-                ),
+              child: Row(
+                children: [
+                  Text('🏆 ', style: TextStyle(fontSize: 16)),
+                  Text(
+                    'Recommandés par les membres',
+                    style: TextStyle(
+                      fontSize: 15,
+                      fontWeight: FontWeight.bold,
+                      color: AppColors.textDark,
+                    ),
+                  ),
+                ],
               ),
             ),
           ),
 
-          // ── Liste recommandations ─────────────────────────
+          // ── Liste horizontale top rated ──────────────────────
+          SliverToBoxAdapter(
+            child: StreamBuilder<List<BookModel>>(
+              stream: bookService.getTopRatedBooksStream(),
+              builder: (context, snapshot) {
+                if (!snapshot.hasData) {
+                  return const Center(
+                    child: Padding(
+                      padding: EdgeInsets.all(32),
+                      child: CircularProgressIndicator(),
+                    ),
+                  );
+                }
+                final books = snapshot.data!;
+                if (books.isEmpty) {
+                  return const Padding(
+                    padding: EdgeInsets.all(32),
+                    child: Center(
+                      child: Text(
+                        'Aucun livre noté pour le moment',
+                        style: TextStyle(color: AppColors.textMuted),
+                      ),
+                    ),
+                  );
+                }
+                return SizedBox(
+                  height: 280,
+                  child: ListView.builder(
+                    scrollDirection: Axis.horizontal,
+                    padding: const EdgeInsets.symmetric(horizontal: 16),
+                    itemCount: books.length,
+                    itemBuilder: (context, index) => _TopRatedCard(
+                      book: books[index],
+                      onTap: () => Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (_) => BookDetailScreen(book: books[index]),
+                        ),
+                      ),
+                    ),
+                  ),
+                );
+              },
+            ),
+          ),
+
+          // ── SECTION 2 : RECOMMANDÉS POUR VOUS (PERSONNALISÉ) ──
+          const SliverToBoxAdapter(
+            child: Padding(
+              padding: EdgeInsets.fromLTRB(16, 20, 16, 8),
+              child: Row(
+                children: [
+                  Text('✨ ', style: TextStyle(fontSize: 16)),
+                  Text(
+                    'Recommandés pour vous',
+                    style: TextStyle(
+                      fontSize: 15,
+                      fontWeight: FontWeight.bold,
+                      color: AppColors.textDark,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+
+          // ── Liste verticale recommandations personnalisées ───
           SliverToBoxAdapter(
             child: StreamBuilder<List<BookModel>>(
               stream: bookService.getRecommandationsStream(
@@ -131,27 +202,35 @@ class _HomeTab extends StatelessWidget {
               builder: (context, snapshot) {
                 if (!snapshot.hasData) {
                   return const Center(
-                      child: Padding(
-                    padding: EdgeInsets.all(32),
-                    child: CircularProgressIndicator(),
-                  ));
+                    child: Padding(
+                      padding: EdgeInsets.all(32),
+                      child: CircularProgressIndicator(),
+                    ),
+                  );
                 }
                 final books = snapshot.data!;
                 if (books.isEmpty) {
-                  return const _EmptyRecommended();
+                  return const Padding(
+                    padding: EdgeInsets.all(32),
+                    child: Center(
+                      child: Text(
+                        'Aucune recommandation pour l\'instant',
+                        style: TextStyle(color: AppColors.textMuted),
+                      ),
+                    ),
+                  );
                 }
                 return ListView.builder(
                   shrinkWrap: true,
                   physics: const NeverScrollableScrollPhysics(),
                   padding: const EdgeInsets.symmetric(horizontal: 16),
                   itemCount: books.length,
-                  itemBuilder: (context, index) => _BookCard(
+                  itemBuilder: (context, index) => _Cartelivre(
                     book: books[index],
                     onTap: () => Navigator.push(
                       context,
                       MaterialPageRoute(
-                        builder: (_) =>
-                            BookDetailScreen(book: books[index]),
+                        builder: (_) => BookDetailScreen(book: books[index]),
                       ),
                     ),
                   ),
@@ -167,67 +246,61 @@ class _HomeTab extends StatelessWidget {
 
   Widget _buildHeader(BuildContext context) {
     return Container(
-      color: Colors.white,
-      padding: const EdgeInsets.fromLTRB(16, 12, 16, 12),
+      color: AppColors.primary,
+      padding: const EdgeInsets.fromLTRB(16, 16, 16, 20),
       child: Row(
         children: [
-          // Avatar
-          CircleAvatar(
-            radius: 22,
-            backgroundColor: AppColors.primary,
-            child: Text(
-              (user?.nom ?? 'U')[0].toUpperCase(),
-              style: const TextStyle(
-                color: Colors.white,
-                fontWeight: FontWeight.bold,
-                fontSize: 18,
-              ),
-            ),
-          ),
-          const SizedBox(width: 12),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  'Bonjour, ${user?.nom?.split(' ').first ?? 'Membre'} 👋',
+                  'Bonjour 👋',
                   style: const TextStyle(
-                    fontSize: 15,
-                    fontWeight: FontWeight.bold,
-                    color: AppColors.textDark,
+                    fontSize: 14,
+                    color: Colors.white70,
                   ),
                 ),
-                const Text(
-                  'Bibliothèque BookShare',
-                  style: TextStyle(
-                    fontSize: 12,
-                    color: AppColors.textMuted,
+                Text(
+                  '${user?.nom?.split(' ').first ?? 'Membre'} !',
+                  style: const TextStyle(
+                    fontSize: 22,
+                    fontWeight: FontWeight.bold,
+                    color: Colors.white,
                   ),
                 ),
               ],
             ),
           ),
-          // Notification bell
-          IconButton(
-            onPressed: () {},
-            icon: Stack(
-              children: [
-                const Icon(Icons.notifications_outlined,
-                    color: AppColors.textDark, size: 26),
-                Positioned(
-                  right: 0,
-                  top: 0,
-                  child: Container(
-                    width: 8,
-                    height: 8,
-                    decoration: const BoxDecoration(
-                      color: AppColors.secondary,
-                      shape: BoxShape.circle,
-                    ),
+          // Avatar + notification dot
+          Stack(
+            children: [
+              CircleAvatar(
+                radius: 22,
+                backgroundColor: Colors.orange,
+                child: Text(
+                  (user?.nom ?? 'U')[0].toUpperCase(),
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontWeight: FontWeight.bold,
+                    fontSize: 18,
                   ),
                 ),
-              ],
-            ),
+              ),
+              Positioned(
+                right: 0,
+                top: 0,
+                child: Container(
+                  width: 10,
+                  height: 10,
+                  decoration: BoxDecoration(
+                    color: Colors.red,
+                    shape: BoxShape.circle,
+                    border: Border.all(color: Colors.white, width: 1.5),
+                  ),
+                ),
+              ),
+            ],
           ),
           // Logout
           IconButton(
@@ -240,8 +313,7 @@ class _HomeTab extends StatelessWidget {
                 );
               }
             },
-            icon: const Icon(Icons.logout,
-                color: AppColors.textMuted, size: 22),
+            icon: const Icon(Icons.logout, color: Colors.white70, size: 20),
           ),
         ],
       ),
@@ -249,7 +321,154 @@ class _HomeTab extends StatelessWidget {
   }
 }
 
-// ── Stats Bar ──────────────────────────────────────────────────
+// ══════════════════════════════════════════════════════════════
+// TOP RATED CARD (horizontal scroll)
+// ══════════════════════════════════════════════════════════════
+class _TopRatedCard extends StatelessWidget {
+  final BookModel book;
+  final VoidCallback onTap;
+
+  const _TopRatedCard({required this.book, required this.onTap});
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        width: 160,
+        margin: const EdgeInsets.only(right: 12),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(16),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withOpacity(0.05),
+              blurRadius: 8,
+              offset: const Offset(0, 2),
+            ),
+          ],
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // Couverture
+            ClipRRect(
+              borderRadius: const BorderRadius.only(
+                topLeft: Radius.circular(16),
+                topRight: Radius.circular(16),
+              ),
+              child: _CouvertureLivre(imageUrl: book.imageUrl, size: 160),
+            ),
+            Padding(
+              padding: const EdgeInsets.all(10),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    book.titre,
+                    style: const TextStyle(
+                      fontWeight: FontWeight.bold,
+                      fontSize: 13,
+                      color: AppColors.textDark,
+                    ),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                  const SizedBox(height: 2),
+                  Text(
+                    book.auteur,
+                    style: const TextStyle(
+                      fontSize: 11,
+                      color: AppColors.textMuted,
+                    ),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                  const SizedBox(height: 6),
+                  Row(
+                    children: [
+                      _NotesEtoiles(rating: book.rating),
+                      const SizedBox(width: 4),
+                      Text(
+                        '(${book.reviewCount})',
+                        style: const TextStyle(
+                          fontSize: 10,
+                          color: AppColors.textMuted,
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 6),
+                  Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 8,
+                      vertical: 2,
+                    ),
+                    decoration: BoxDecoration(
+                      color: Colors.amber.shade50,
+                      borderRadius: BorderRadius.circular(20),
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        const Icon(
+                          Icons.star,
+                          size: 12,
+                          color: Color(0xFFFFB300),
+                        ),
+                        const SizedBox(width: 2),
+                        Text(
+                          book.rating.toStringAsFixed(1),
+                          style: const TextStyle(
+                            fontSize: 11,
+                            fontWeight: FontWeight.bold,
+                            color: Color(0xFFFFB300),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+// ── Barre de recherche ──────────────────────────────────────────
+class _SearchBar extends StatelessWidget {
+  const _SearchBar();
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      color: AppColors.primary,
+      padding: const EdgeInsets.fromLTRB(16, 0, 16, 20),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(30),
+        ),
+        child: Row(
+          children: const [
+            Icon(Icons.search, color: AppColors.textMuted, size: 20),
+            SizedBox(width: 8),
+            Text(
+              'Rechercher un livre...',
+              style: TextStyle(color: AppColors.textMuted, fontSize: 14),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+// ── Stats Bar ───────────────────────────────────────────────────
 class _StatsBar extends StatelessWidget {
   final String userId;
   const _StatsBar({required this.userId});
@@ -259,36 +478,40 @@ class _StatsBar extends StatelessWidget {
     return FutureBuilder<Map<String, int>>(
       future: BookService().getMemberStats(userId),
       builder: (context, snapshot) {
-        final stats = snapshot.data ?? {'enCours': 0, 'retournés': 0, 'notifications': 0};
-        return Container(
-          margin: const EdgeInsets.all(16),
-          padding: const EdgeInsets.symmetric(vertical: 16),
-          decoration: BoxDecoration(
-            color: AppColors.primary,
-            borderRadius: BorderRadius.circular(16),
-          ),
+        final stats = snapshot.data ??
+            {'enCours': 0, 'retournés': 0, 'notifications': 0};
+        return Padding(
+          padding: const EdgeInsets.fromLTRB(16, 16, 16, 0),
           child: Row(
-            mainAxisAlignment: MainAxisAlignment.spaceEvenly,
             children: [
-              _StatItem(
-                value: stats['enCours']!,
-                label: 'In progress',
-                icon: Icons.book_outlined,
-                color: Colors.blue.shade200,
+              // En cours — bleu
+              Expanded(
+                child: _StatCard(
+                  value: stats['enCours']!,
+                  label: 'En cours',
+                  icon: Icons.book_outlined,
+                  color: const Color(0xFF3B82F6),
+                ),
               ),
-              _divider(),
-              _StatItem(
-                value: stats['retournés']!,
-                label: 'returned',
-                icon: Icons.check_circle_outline,
-                color: Colors.green.shade200,
+              const SizedBox(width: 12),
+              // Retournés — vert
+              Expanded(
+                child: _StatCard(
+                  value: stats['retournés']!,
+                  label: 'Retournés',
+                  icon: Icons.check_circle_outline,
+                  color: const Color(0xFF22C55E),
+                ),
               ),
-              _divider(),
-              _StatItem(
-                value: stats['notifications']!,
-                label: 'reserved',
-                icon: Icons.bookmark_outline,
-                color: Colors.orange.shade200,
+              const SizedBox(width: 12),
+              // Réservés — orange
+              Expanded(
+                child: _StatCard(
+                  value: stats['notifications']!,
+                  label: 'Réservés',
+                  icon: Icons.bookmark_outline,
+                  color: const Color(0xFFF97316),
+                ),
               ),
             ],
           ),
@@ -296,21 +519,15 @@ class _StatsBar extends StatelessWidget {
       },
     );
   }
-
-  Widget _divider() => Container(
-        width: 1,
-        height: 40,
-        color: Colors.white24,
-      );
 }
 
-class _StatItem extends StatelessWidget {
+class _StatCard extends StatelessWidget {
   final int value;
   final String label;
   final IconData icon;
   final Color color;
 
-  const _StatItem({
+  const _StatCard({
     required this.value,
     required this.label,
     required this.icon,
@@ -319,43 +536,46 @@ class _StatItem extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Column(
-      children: [
-        Container(
-          padding: const EdgeInsets.all(8),
-          decoration: BoxDecoration(
-            color: Colors.white.withOpacity(0.15),
-            borderRadius: BorderRadius.circular(10),
+    return Container(
+      padding: const EdgeInsets.symmetric(vertical: 16),
+      decoration: BoxDecoration(
+        color: color,
+        borderRadius: BorderRadius.circular(16),
+      ),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, color: Colors.white, size: 28),
+          const SizedBox(height: 6),
+          Text(
+            '$value',
+            style: const TextStyle(
+              fontSize: 26,
+              fontWeight: FontWeight.bold,
+              color: Colors.white,
+            ),
           ),
-          child: Icon(icon, color: Colors.white, size: 20),
-        ),
-        const SizedBox(height: 6),
-        Text(
-          '$value',
-          style: const TextStyle(
-            fontSize: 22,
-            fontWeight: FontWeight.bold,
-            color: Colors.white,
+          const SizedBox(height: 2),
+          Text(
+            label,
+            style: const TextStyle(
+              fontSize: 11,
+              color: Colors.white,
+              fontWeight: FontWeight.w500,
+            ),
           ),
-        ),
-        Text(
-          label,
-          style: const TextStyle(
-            fontSize: 11,
-            color: Colors.white70,
-          ),
-        ),
-      ],
+        ],
+      ),
     );
   }
 }
 
-// ── Book Card (Recommended) ─────────────────────────────────────
-class _BookCard extends StatelessWidget {
+// ── Carte Livre (version verticale) ────────────────────────────
+class _Cartelivre extends StatelessWidget {
   final BookModel book;
   final VoidCallback onTap;
 
-  const _BookCard({required this.book, required this.onTap});
+  const _Cartelivre({required this.book, required this.onTap});
 
   @override
   Widget build(BuildContext context) {
@@ -366,7 +586,7 @@ class _BookCard extends StatelessWidget {
         padding: const EdgeInsets.all(12),
         decoration: BoxDecoration(
           color: Colors.white,
-          borderRadius: BorderRadius.circular(12),
+          borderRadius: BorderRadius.circular(16),
           boxShadow: [
             BoxShadow(
               color: Colors.black.withOpacity(0.05),
@@ -377,10 +597,10 @@ class _BookCard extends StatelessWidget {
         ),
         child: Row(
           children: [
-            // Cover
-            _BookCover(imageUrl: book.imageUrl, size: 60),
+            // Couverture
+            _CouvertureLivre(imageUrl: book.imageUrl, size: 60),
             const SizedBox(width: 12),
-            // Info
+            // Infos
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -404,13 +624,15 @@ class _BookCard extends StatelessWidget {
                     ),
                   ),
                   const SizedBox(height: 6),
-                  _StarRating(rating: book.rating),
+                  _NotesEtoiles(rating: book.rating),
+                  const SizedBox(height: 6),
+                  _BadgeStatut(statut: book.statut),
                 ],
               ),
             ),
             const SizedBox(width: 8),
-            // Status badge
-            _StatusBadge(statut: book.statut),
+            // Bouton action
+            _BoutonAction(statut: book.statut),
           ],
         ),
       ),
@@ -418,12 +640,12 @@ class _BookCard extends StatelessWidget {
   }
 }
 
-// ── Book Cover widget ───────────────────────────────────────────
-class _BookCover extends StatelessWidget {
+// ── Couverture Livre ────────────────────────────────────────────
+class _CouvertureLivre extends StatelessWidget {
   final String? imageUrl;
   final double size;
 
-  const _BookCover({this.imageUrl, required this.size});
+  const _CouvertureLivre({this.imageUrl, required this.size});
 
   @override
   Widget build(BuildContext context) {
@@ -459,10 +681,10 @@ class _BookCover extends StatelessWidget {
   }
 }
 
-// ── Star Rating ─────────────────────────────────────────────────
-class _StarRating extends StatelessWidget {
+// ── Notes Étoiles ───────────────────────────────────────────────
+class _NotesEtoiles extends StatelessWidget {
   final double rating;
-  const _StarRating({required this.rating});
+  const _NotesEtoiles({required this.rating});
 
   @override
   Widget build(BuildContext context) {
@@ -478,10 +700,10 @@ class _StarRating extends StatelessWidget {
   }
 }
 
-// ── Status Badge ────────────────────────────────────────────────
-class _StatusBadge extends StatelessWidget {
+// ── Badge Statut ────────────────────────────────────────────────
+class _BadgeStatut extends StatelessWidget {
   final String statut;
-  const _StatusBadge({required this.statut});
+  const _BadgeStatut({required this.statut});
 
   @override
   Widget build(BuildContext context) {
@@ -493,21 +715,21 @@ class _StatusBadge extends StatelessWidget {
       case 'emprunté':
         bg = Colors.orange.shade50;
         fg = Colors.orange;
-        label = 'Borrow';
+        label = 'Emprunté';
         break;
       case 'réservé':
         bg = Colors.blue.shade50;
         fg = Colors.blue;
-        label = 'Reserved';
+        label = 'Réservé';
         break;
       default:
         bg = Colors.green.shade50;
-        fg = AppColors.success;
-        label = 'Available';
+        fg = Colors.green;
+        label = 'Disponible';
     }
 
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
       decoration: BoxDecoration(
         color: bg,
         borderRadius: BorderRadius.circular(20),
@@ -524,34 +746,65 @@ class _StatusBadge extends StatelessWidget {
   }
 }
 
-class _EmptyRecommended extends StatelessWidget {
-  const _EmptyRecommended();
+// ── Bouton Action ───────────────────────────────────────────────
+class _BoutonAction extends StatelessWidget {
+  final String statut;
+  const _BoutonAction({required this.statut});
+
   @override
   Widget build(BuildContext context) {
-    return const Padding(
-      padding: EdgeInsets.all(32),
-      child: Center(
-        child: Text(
-          'Aucune recommandation pour l\'instant',
-          style: TextStyle(color: AppColors.textMuted),
+    String label;
+    Color color;
+
+    switch (statut) {
+      case 'emprunté':
+        label = 'Indisponible';
+        color = Colors.grey;
+        break;
+      case 'réservé':
+        label = 'Réserver';
+        color = Colors.orange;
+        break;
+      default:
+        label = 'Emprunter';
+        color = AppColors.primary;
+    }
+
+    return ElevatedButton(
+      onPressed: statut == 'emprunté' ? null : () {},
+      style: ElevatedButton.styleFrom(
+        backgroundColor: color,
+        foregroundColor: Colors.white,
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(20),
+        ),
+        elevation: 0,
+        textStyle: const TextStyle(
+          fontSize: 12,
+          fontWeight: FontWeight.bold,
         ),
       ),
+      child: Text(label),
     );
   }
 }
 
-class _EventsPlaceholder extends StatelessWidget {
-  const _EventsPlaceholder();
+// ── Placeholders ────────────────────────────────────────────────
+class _EvenementsPlaceholder extends StatelessWidget {
+  const _EvenementsPlaceholder();
+
   @override
   Widget build(BuildContext context) => const Scaffold(
-        body: Center(child: Text('Événements — bientôt')),
+        body: Center(child: Text('Événements — bientôt disponible')),
       );
 }
 
 class _MessagesPlaceholder extends StatelessWidget {
   const _MessagesPlaceholder();
+
   @override
   Widget build(BuildContext context) => const Scaffold(
-        body: Center(child: Text('Messages — bientôt')),
+        body: Center(child: Text('Messages — bientôt disponible')),
       );
 }

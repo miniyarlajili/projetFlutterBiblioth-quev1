@@ -1,6 +1,6 @@
-import 'package:intl/intl.dart';
-import '../../utils/constants.dart';
+import 'review_screen.dart';
 import '../../models/loan_model.dart';
+import '../../models/book_model.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../services/book_service.dart';
@@ -11,34 +11,24 @@ class LoansScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final userId = context.watch<AuthController>().currentUser?.uid;
+
     return DefaultTabController(
       length: 2,
       child: Scaffold(
-        backgroundColor: AppColors.background,
         appBar: AppBar(
-          automaticallyImplyLeading: false,
-          title: const Text(
-            'My Loans',
-            style: TextStyle(
-              color: Colors.white,
-              fontWeight: FontWeight.bold,
-            ),
-          ),
-          backgroundColor: AppColors.primary,
+          title: const Text('Mes Emprunts'),
           bottom: const TabBar(
-            indicatorColor: Colors.white,
-            labelColor: Colors.white,
-            unselectedLabelColor: Colors.white70,
             tabs: [
               Tab(text: 'En cours'),
               Tab(text: 'Historique'),
             ],
           ),
         ),
-        body: const TabBarView(
+        body: TabBarView(
           children: [
-            _ActiveLoansTab(),
-            _HistoryTab(),
+            _ActiveLoansTab(userId: userId),
+            _HistoryLoansTab(userId: userId),
           ],
         ),
       ),
@@ -46,384 +36,418 @@ class LoansScreen extends StatelessWidget {
   }
 }
 
-// ══════════════════════════════════════════════════════════════
-// TAB 1 — Emprunts en cours
-// ══════════════════════════════════════════════════════════════
+// ── Onglet des emprunts en cours ───────────────────────────────
 class _ActiveLoansTab extends StatelessWidget {
-  const _ActiveLoansTab();
+  final String? userId;
+
+  const _ActiveLoansTab({required this.userId});
 
   @override
   Widget build(BuildContext context) {
-    final auth = context.watch<AuthController>();
-    final userId = auth.currentUser?.uid ?? '';
+    if (userId == null) {
+      return const Center(child: Text('Veuillez vous connecter'));
+    }
 
     return StreamBuilder<List<LoanModel>>(
       stream: BookService().getActiveLoansStream(userId),
       builder: (context, snapshot) {
-        if (snapshot.connectionState == ConnectionState.waiting) {
+        if (!snapshot.hasData) {
           return const Center(child: CircularProgressIndicator());
         }
 
-        final loans = snapshot.data ?? [];
-
+        final loans = snapshot.data!;
         if (loans.isEmpty) {
-          return Center(
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Icon(Icons.library_books_outlined,
-                    size: 64, color: Colors.grey.shade300),
-                const SizedBox(height: 16),
-                const Text(
-                  'Aucun emprunt en cours',
-                  style: TextStyle(
-                    fontSize: 16,
-                    color: AppColors.textMuted,
-                  ),
-                ),
-                const SizedBox(height: 8),
-                const Text(
-                  'Explorez le catalogue pour emprunter un livre',
-                  style: TextStyle(
-                    fontSize: 13,
-                    color: AppColors.textMuted,
-                  ),
-                  textAlign: TextAlign.center,
-                ),
-              ],
-            ),
+          return const Center(
+            child: Text('Aucun emprunt en cours'),
           );
         }
 
         return ListView.builder(
           padding: const EdgeInsets.all(16),
           itemCount: loans.length,
-          itemBuilder: (context, index) =>
-              _LoanCard(loan: loans[index], showReturnButton: true),
+          itemBuilder: (context, index) {
+            final loan = loans[index];
+            return _LoanCard(
+              loan: loan,
+              isActive: true,
+            );
+          },
         );
       },
     );
   }
 }
 
-// ══════════════════════════════════════════════════════════════
-// TAB 2 — Historique
-// ══════════════════════════════════════════════════════════════
-class _HistoryTab extends StatelessWidget {
-  const _HistoryTab();
+// ── Onglet de l'historique ─────────────────────────────────────
+class _HistoryLoansTab extends StatelessWidget {
+  final String? userId;
+
+  const _HistoryLoansTab({required this.userId});
 
   @override
   Widget build(BuildContext context) {
-    final auth = context.watch<AuthController>();
-    final userId = auth.currentUser?.uid ?? '';
+    if (userId == null) {
+      return const Center(child: Text('Veuillez vous connecter'));
+    }
 
     return StreamBuilder<List<LoanModel>>(
       stream: BookService().getLoanHistoryStream(userId),
       builder: (context, snapshot) {
-        if (snapshot.connectionState == ConnectionState.waiting) {
+        if (!snapshot.hasData) {
           return const Center(child: CircularProgressIndicator());
         }
 
-        final loans = snapshot.data ?? [];
-
+        final loans = snapshot.data!;
         if (loans.isEmpty) {
           return const Center(
-            child: Text(
-              'Aucun historique',
-              style: TextStyle(color: AppColors.textMuted),
-            ),
+            child: Text('Aucun historique d\'emprunt'),
           );
         }
 
         return ListView.builder(
           padding: const EdgeInsets.all(16),
           itemCount: loans.length,
-          itemBuilder: (context, index) =>
-              _LoanCard(loan: loans[index], showReturnButton: false),
+          itemBuilder: (context, index) {
+            final loan = loans[index];
+            return _LoanCard(
+              loan: loan,
+              isActive: false,
+            );
+          },
         );
       },
     );
   }
 }
 
-// ── Loan Card ───────────────────────────────────────────────────
-class _LoanCard extends StatelessWidget {
+// ── Carte d'un emprunt ─────────────────────────────────────────
+class _LoanCard extends StatefulWidget {
   final LoanModel loan;
-  final bool showReturnButton;
+  final bool isActive;
 
-  const _LoanCard({required this.loan, required this.showReturnButton});
+  const _LoanCard({
+    required this.loan,
+    required this.isActive,
+  });
+
+  @override
+  State<_LoanCard> createState() => _LoanCardState();
+}
+
+class _LoanCardState extends State<_LoanCard> {
+  bool _isReturning = false;
 
   @override
   Widget build(BuildContext context) {
-    final fmt = DateFormat('dd/MM/yyyy');
-    final isLate = loan.isLate;
+    final bookService = BookService();
 
-    return Container(
+    return Card(
       margin: const EdgeInsets.only(bottom: 12),
-      padding: const EdgeInsets.all(14),
-      decoration: BoxDecoration(
-        color: Colors.white,
+      shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(12),
-        border: isLate
-            ? Border.all(color: Colors.red.shade200)
-            : null,
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.05),
-            blurRadius: 6,
-            offset: const Offset(0, 2),
-          ),
-        ],
       ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              // Book icon placeholder
-              Container(
-                width: 44,
-                height: 58,
-                decoration: BoxDecoration(
-                  color: AppColors.primary.withOpacity(0.1),
-                  borderRadius: BorderRadius.circular(6),
+      child: Padding(
+        padding: const EdgeInsets.all(12),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                // Couverture
+                Container(
+                  width: 60,
+                  height: 80,
+                  decoration: BoxDecoration(
+                    borderRadius: BorderRadius.circular(8),
+                    color: Colors.grey[200],
+                    image: widget.loan.bookImageUrl != null
+                        ? DecorationImage(
+                            image: NetworkImage(widget.loan.bookImageUrl!),
+                            fit: BoxFit.cover,
+                          )
+                        : null,
+                  ),
+                  child: widget.loan.bookImageUrl == null
+                      ? const Icon(Icons.book, size: 30)
+                      : null,
                 ),
-                child: loan.bookImageUrl != null
-                    ? ClipRRect(
-                        borderRadius: BorderRadius.circular(6),
-                        child: Image.network(
-                          loan.bookImageUrl!,
-                          fit: BoxFit.cover,
-                          errorBuilder: (_, __, ___) => const Icon(
-                            Icons.menu_book_rounded,
-                            color: AppColors.primary,
-                          ),
+                const SizedBox(width: 12),
+                // Infos
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        widget.loan.bookTitre,
+                        style: const TextStyle(
+                          fontWeight: FontWeight.bold,
+                          fontSize: 16,
                         ),
-                      )
-                    : const Icon(Icons.menu_book_rounded,
-                        color: AppColors.primary),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      loan.bookTitre,
-                      style: const TextStyle(
-                        fontWeight: FontWeight.bold,
-                        fontSize: 14,
-                        color: AppColors.textDark,
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
                       ),
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                    const SizedBox(height: 2),
-                    Text(
-                      loan.bookAuteur,
-                      style: const TextStyle(
-                        fontSize: 12,
-                        color: AppColors.textMuted,
+                      const SizedBox(height: 4),
+                      Text(
+                        widget.loan.bookAuteur,
+                        style: TextStyle(
+                          fontSize: 14,
+                          color: Colors.grey[600],
+                        ),
                       ),
-                    ),
-                    const SizedBox(height: 6),
-                    // Statut badge
-                    _LoanStatusBadge(loan: loan),
-                  ],
+                      const SizedBox(height: 8),
+                      if (widget.isActive) ...[
+                        _buildInfoRow(
+                          '📅 Emprunté le',
+                          _formatDate(widget.loan.dateEmprunt),
+                        ),
+                        const SizedBox(height: 4),
+                        _buildInfoRow(
+                          '⏰ Retour prévu le',
+                          _formatDate(widget.loan.dateRetourPrevue),
+                          isWarning: widget.loan.dateRetourPrevue
+                                  .isBefore(DateTime.now()),
+                        ),
+                      ] else ...[
+                        _buildInfoRow(
+                          '✅ Retourné le',
+                          _formatDate(widget.loan.dateRetourEffective ??
+                              widget.loan.dateRetourPrevue),
+                        ),
+                      ],
+                    ],
+                  ),
                 ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 10),
-          const Divider(height: 1),
-          const SizedBox(height: 8),
-          // Dates
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              _DateInfo(
-                label: 'Emprunté le',
-                date: fmt.format(loan.dateEmprunt),
-              ),
-              _DateInfo(
-                label: loan.statut == 'retourné'
-                    ? 'Retourné le'
-                    : 'Retour prévu',
-                date: loan.statut == 'retourné' && loan.dateRetourEffective != null
-                    ? fmt.format(loan.dateRetourEffective!)
-                    : fmt.format(loan.dateRetourPrevue),
-                isLate: isLate,
-              ),
-            ],
-          ),
-          // Retard warning
-          if (isLate) ...[
-            const SizedBox(height: 8),
-            Container(
-              padding:
-                  const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-              decoration: BoxDecoration(
-                color: Colors.red.shade50,
-                borderRadius: BorderRadius.circular(8),
-              ),
-              child: Row(
+              ],
+            ),
+            const SizedBox(height: 12),
+            // Boutons d'action
+            if (widget.isActive)
+              Row(
                 children: [
-                  const Icon(Icons.warning_amber_outlined,
-                      color: Colors.red, size: 14),
-                  const SizedBox(width: 6),
-                  Text(
-                    'En retard de ${loan.joursRestants.abs()} jours',
-                    style: const TextStyle(
-                      color: Colors.red,
-                      fontSize: 12,
-                      fontWeight: FontWeight.w600,
+                  Expanded(
+                    child: ElevatedButton.icon(
+                      onPressed: _isReturning
+                          ? null
+                          : () => _retournerLivre(context, bookService),
+                      icon: _isReturning
+                          ? const SizedBox(
+                              height: 16,
+                              width: 16,
+                              child: CircularProgressIndicator(
+                                strokeWidth: 2,
+                              ),
+                            )
+                          : const Icon(Icons.assignment_return,
+                              size: 18),
+                      label: Text(_isReturning ? 'Retour en cours...' : 'Retourner'),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: Colors.green,
+                        foregroundColor: Colors.white,
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: OutlinedButton.icon(
+                      onPressed: () {},
+                      icon: const Icon(Icons.alarm, size: 18),
+                      label: const Text('Prolonger'),
+                      style: OutlinedButton.styleFrom(
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                      ),
                     ),
                   ),
                 ],
-              ),
-            ),
-          ],
-          // Bouton retourner
-          if (showReturnButton && loan.statut == 'en_cours') ...[
-            const SizedBox(height: 10),
-            SizedBox(
-              width: double.infinity,
-              height: 38,
-              child: OutlinedButton.icon(
-                onPressed: () => _returnBook(context, loan),
-                icon: const Icon(Icons.keyboard_return, size: 16),
-                label: const Text('Retourner le livre'),
-                style: OutlinedButton.styleFrom(
-                  foregroundColor: AppColors.primary,
-                  side: const BorderSide(color: AppColors.primary),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(8),
-                  ),
+              )
+            else
+              // BOUTON "DONNER MON AVIS" POUR LES LIVRES RETOURNÉS
+              FutureBuilder<bool>(
+                future: bookService.hasUserReviewedBook(
+                  context.read<AuthController>().currentUser!.uid,
+                  widget.loan.bookId,
                 ),
+                builder: (context, snapshot) {
+                  final hasReviewed = snapshot.data ?? false;
+                  
+                  if (hasReviewed) {
+                    return Container(
+                      padding: const EdgeInsets.symmetric(vertical: 8),
+                      decoration: BoxDecoration(
+                        color: Colors.green.shade50,
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: const Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Icon(Icons.check_circle, size: 16, color: Colors.green),
+                          SizedBox(width: 8),
+                          Text(
+                            'Vous avez déjà donné votre avis',
+                            style: TextStyle(
+                              fontSize: 13,
+                              color: Colors.green,
+                            ),
+                          ),
+                        ],
+                      ),
+                    );
+                  }
+                  
+                  return SizedBox(
+                    width: double.infinity,
+                    child: OutlinedButton.icon(
+                      onPressed: () => _showReviewDialog(context, widget.loan),
+                      icon: const Icon(Icons.rate_review, size: 18),
+                      label: const Text('Donner mon avis'),
+                      style: OutlinedButton.styleFrom(
+                        foregroundColor: Colors.orange,
+                        side: const BorderSide(color: Colors.orange),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                      ),
+                    ),
+                  );
+                },
               ),
-            ),
           ],
-        ],
+        ),
       ),
     );
   }
 
-  Future<void> _returnBook(BuildContext context, LoanModel loan) async {
-    final confirm = await showDialog<bool>(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        shape:
-            RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-        title: const Text('Retourner le livre'),
-        content: Text('Confirmez-vous le retour de « ${loan.bookTitre} » ?'),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx, false),
-            child: const Text('Annuler'),
+  Widget _buildInfoRow(String label, String value, {bool isWarning = false}) {
+    return Row(
+      children: [
+        Text(
+          label,
+          style: const TextStyle(
+            fontSize: 12,
+            color: Colors.grey,
           ),
-          ElevatedButton(
-            onPressed: () => Navigator.pop(ctx, true),
-            style:
-                ElevatedButton.styleFrom(backgroundColor: AppColors.primary),
-            child: const Text('Confirmer',
-                style: TextStyle(color: Colors.white)),
+        ),
+        const SizedBox(width: 8),
+        Text(
+          value,
+          style: TextStyle(
+            fontSize: 12,
+            fontWeight: FontWeight.w500,
+            color: isWarning ? Colors.red : Colors.grey[800],
           ),
-        ],
-      ),
+        ),
+      ],
     );
+  }
 
-    if (confirm != true) return;
+  String _formatDate(DateTime date) {
+    return '${date.day}/${date.month}/${date.year}';
+  }
+
+  Future<void> _retournerLivre(BuildContext context, BookService service) async {
+    setState(() => _isReturning = true);
 
     try {
-      await BookService().retournerLivre(
-        loanId: loan.id,
-        bookId: loan.bookId,
+      await service.retournerLivre(
+        loanId: widget.loan.id,
+        bookId: widget.loan.bookId,
       );
-      if (context.mounted) {
+
+      if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
-            content: Text('✅ Livre retourné avec succès !'),
-            backgroundColor: AppColors.success,
+            content: Text('Livre retourné avec succès !'),
+            backgroundColor: Colors.green,
           ),
         );
       }
     } catch (e) {
-      if (context.mounted) {
+      if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Erreur: $e')),
+          SnackBar(
+            content: Text('Erreur: ${e.toString()}'),
+            backgroundColor: Colors.red,
+          ),
         );
+      }
+    } finally {
+      if (mounted) {
+        setState(() => _isReturning = false);
       }
     }
   }
-}
 
-class _LoanStatusBadge extends StatelessWidget {
-  final LoanModel loan;
-  const _LoanStatusBadge({required this.loan});
+  // Afficher le dialogue pour proposer de laisser un avis
+  void _showReviewDialog(BuildContext context, LoanModel loan) async {
+    // Récupérer les infos du livre
+    final bookDoc = await BookService().getBookById(loan.bookId);
+    if (bookDoc == null) return;
 
-  @override
-  Widget build(BuildContext context) {
-    Color bg, fg;
-    String label;
-
-    if (loan.statut == 'retourné') {
-      bg = Colors.green.shade50;
-      fg = AppColors.success;
-      label = 'Retourné';
-    } else if (loan.isLate) {
-      bg = Colors.red.shade50;
-      fg = Colors.red;
-      label = 'En retard';
-    } else {
-      bg = Colors.blue.shade50;
-      fg = AppColors.primary;
-      label = 'En cours';
-    }
-
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-      decoration: BoxDecoration(
-        color: bg,
-        borderRadius: BorderRadius.circular(12),
+    showModalBottomSheet(
+      context: context,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
       ),
-      child: Text(
-        label,
-        style: TextStyle(fontSize: 10, color: fg, fontWeight: FontWeight.bold),
+      builder: (context) => Container(
+        padding: const EdgeInsets.all(20),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Icon(Icons.rate_review, size: 48, color: Color(0xFF3B82F6)),
+            const SizedBox(height: 16),
+            const Text(
+              'Partagez votre avis',
+              style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              'Avez-vous aimé "${bookDoc.titre ?? 'ce livre'}" ?',
+              textAlign: TextAlign.center,
+              style: const TextStyle(fontSize: 14),
+            ),
+            const SizedBox(height: 24),
+            Row(
+              children: [
+                Expanded(
+                  child: OutlinedButton(
+                    onPressed: () => Navigator.pop(context),
+                    style: OutlinedButton.styleFrom(
+                      padding: const EdgeInsets.symmetric(vertical: 12),
+                    ),
+                    child: const Text('Plus tard'),
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: ElevatedButton(
+                    onPressed: () {
+                      Navigator.pop(context);
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (_) => ReviewScreen(
+                            book: bookDoc,
+                            loanId: loan.id,
+                          ),
+                        ),
+                      );
+                    },
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: const Color(0xFF3B82F6),
+                      padding: const EdgeInsets.symmetric(vertical: 12),
+                    ),
+                    child: const Text('Donner mon avis'),
+                  ),
+                ),
+              ],
+            ),
+          ],
+        ),
       ),
-    );
-  }
-}
-
-class _DateInfo extends StatelessWidget {
-  final String label;
-  final String date;
-  final bool isLate;
-
-  const _DateInfo({
-    required this.label,
-    required this.date,
-    this.isLate = false,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(
-          label,
-          style:
-              const TextStyle(fontSize: 11, color: AppColors.textMuted),
-        ),
-        Text(
-          date,
-          style: TextStyle(
-            fontSize: 13,
-            fontWeight: FontWeight.w600,
-            color: isLate ? Colors.red : AppColors.textDark,
-          ),
-        ),
-      ],
     );
   }
 }

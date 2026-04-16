@@ -9,6 +9,8 @@ class AppColors {
   static const surface    = Color(0xFFFFFFFF);
   static const textDark   = Color(0xFF212121);
   static const textMuted  = Color(0xFF757575);
+
+
 }
 
 class AppStrings {

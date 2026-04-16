@@ -1,6 +1,11 @@
 import '../models/book_model.dart';
+import '../models/book_model.dart';
 import '../models/loan_model.dart';
+import 'package:firebase_auth/firebase_auth.dart';
+import 'package:bookshare/models/ReviewModel.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
+
 
 class BookService {
   final FirebaseFirestore _db = FirebaseFirestore.instance;
@@ -171,4 +176,100 @@ class BookService {
       'notifications': 0,
     };
   }
+
+
+  // Dans book_service.dart - ajouter ces méthodes
+
+// ── Ajouter une review pour un livre ────────────────────────────
+Future<void> addReview({
+  required String bookId,
+  required String userId,
+  required String userName,
+  required double rating,
+  required String commentaire,
+}) async {
+  final reviewRef = _db.collection('reviews').doc();
+  final review = ReviewModel(
+    id: reviewRef.id,
+    bookId: bookId,
+    userId: userId,
+    userName: userName,
+    rating: rating,
+    commentaire: commentaire,
+    dateCreation: DateTime.now(),
+  );
+  
+  await reviewRef.set(review.toMap());
+  
+  // Mettre à jour la moyenne des notes du livre
+  await _updateBookAverageRating(bookId);
 }
+
+// ── Mettre à jour la note moyenne d'un livre ────────────────────
+Future<void> _updateBookAverageRating(String bookId) async {
+  final reviewsSnapshot = await _db
+      .collection('reviews')
+      .where('bookId', isEqualTo: bookId)
+      .get();
+  
+  if (reviewsSnapshot.docs.isEmpty) return;
+  
+  double totalRating = 0;
+  for (var doc in reviewsSnapshot.docs) {
+    totalRating += (doc.data()['rating'] as num).toDouble();
+  }
+  
+  double averageRating = totalRating / reviewsSnapshot.docs.length;
+  int reviewCount = reviewsSnapshot.docs.length;
+  
+  await _db.collection('books').doc(bookId).update({
+    'rating': averageRating,
+    'reviewCount': reviewCount,
+  });
+}
+
+// ── Récupérer les reviews d'un livre ────────────────────────────
+Stream<List<ReviewModel>> getBookReviewsStream(String bookId) {
+  return _db
+      .collection('reviews')
+      .where('bookId', isEqualTo: bookId)
+      .orderBy('dateCreation', descending: true)
+      .snapshots()
+      .map((snap) => snap.docs
+          .map((doc) => ReviewModel.fromMap(doc.data(), doc.id))
+          .toList());
+}
+
+// ── Vérifier si l'utilisateur a déjà noté un livre ──────────────
+Future<bool> hasUserReviewedBook(String userId, String bookId) async {
+  final snapshot = await _db
+      .collection('reviews')
+      .where('userId', isEqualTo: userId)
+      .where('bookId', isEqualTo: bookId)
+      .limit(1)
+      .get();
+  return snapshot.docs.isNotEmpty;
+}
+
+// ── Top rated books basé sur les reviews réelles ────────────────
+Stream<List<BookModel>> getTopRatedBooksStream({int limit = 10}) {
+  return _db
+      .collection('books')
+      .orderBy('rating', descending: true)
+      .where('reviewCount', isGreaterThan: 0)  // Livres qui ont au moins 1 review
+      .limit(limit)
+      .snapshots()
+      .map((snap) => snap.docs
+          .map((doc) => BookModel.fromMap(doc.data(), doc.id))
+          .toList());
+}
+// Récupérer un livre par son ID
+Future<BookModel?> getBookById(String bookId) async {
+  final doc = await _db.collection('books').doc(bookId).get();
+  if (doc.exists) {
+    return BookModel.fromMap(doc.data()!, doc.id);
+  }
+  return null;
+}
+}
+ 
