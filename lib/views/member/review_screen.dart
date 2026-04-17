@@ -3,7 +3,6 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../services/book_service.dart';
 import '../../controllers/auth_controller.dart';
-// views/member/review_screen.dart
 
 class ReviewScreen extends StatefulWidget {
   final BookModel book;
@@ -40,7 +39,7 @@ class _ReviewScreenState extends State<ReviewScreen> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // Livre
+            // ───────── Livre ─────────
             Row(
               children: [
                 Container(
@@ -48,17 +47,12 @@ class _ReviewScreenState extends State<ReviewScreen> {
                   height: 100,
                   decoration: BoxDecoration(
                     borderRadius: BorderRadius.circular(12),
-                    image: widget.book.imageUrl != null
-                        ? DecorationImage(
-                            image: NetworkImage(widget.book.imageUrl!),
-                            fit: BoxFit.cover,
-                          )
-                        : null,
                     color: Colors.grey[200],
                   ),
-                  child: widget.book.imageUrl == null
-                      ? const Icon(Icons.book, size: 40)
-                      : null,
+                  child: ClipRRect(
+                    borderRadius: BorderRadius.circular(12),
+                    child: _buildBookImage(),
+                  ),
                 ),
                 const SizedBox(width: 16),
                 Expanded(
@@ -85,16 +79,16 @@ class _ReviewScreenState extends State<ReviewScreen> {
                 ),
               ],
             ),
+
             const SizedBox(height: 32),
-            // Note
+
+            // ───────── Note ─────────
             const Text(
               'Votre note',
-              style: TextStyle(
-                fontSize: 16,
-                fontWeight: FontWeight.bold,
-              ),
+              style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
             ),
             const SizedBox(height: 12),
+
             Row(
               mainAxisAlignment: MainAxisAlignment.center,
               children: List.generate(5, (index) {
@@ -113,7 +107,9 @@ class _ReviewScreenState extends State<ReviewScreen> {
                 );
               }),
             ),
+
             const SizedBox(height: 8),
+
             Center(
               child: Text(
                 _rating == 0
@@ -125,16 +121,16 @@ class _ReviewScreenState extends State<ReviewScreen> {
                 ),
               ),
             ),
+
             const SizedBox(height: 32),
-            // Commentaire
+
+            // ───────── Commentaire ─────────
             const Text(
               'Votre commentaire',
-              style: TextStyle(
-                fontSize: 16,
-                fontWeight: FontWeight.bold,
-              ),
+              style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
             ),
             const SizedBox(height: 12),
+
             TextField(
               controller: _commentController,
               maxLines: 5,
@@ -147,8 +143,10 @@ class _ReviewScreenState extends State<ReviewScreen> {
                 fillColor: Colors.grey[50],
               ),
             ),
+
             const SizedBox(height: 32),
-            // Bouton soumettre
+
+            // ───────── Bouton ─────────
             SizedBox(
               width: double.infinity,
               child: ElevatedButton(
@@ -184,6 +182,39 @@ class _ReviewScreenState extends State<ReviewScreen> {
     );
   }
 
+  // 🔥 IMAGE SAFE BUILDER (الحل النهائي)
+  Widget _buildBookImage() {
+    final url = widget.book.imageUrl;
+
+    // ❌ روابط غالطة
+    if (url == null ||
+        url.isEmpty ||
+        !url.startsWith('http') ||
+        url.contains('sdq')) {
+      return _buildPlaceholder();
+    }
+
+    // ✅ تحميل الصورة
+    return Image.network(
+      url,
+      fit: BoxFit.cover,
+      errorBuilder: (_, __, ___) {
+        return _buildPlaceholder();
+      },
+    );
+  }
+
+  // 🔳 Placeholder
+  Widget _buildPlaceholder() {
+    return Container(
+      color: Colors.grey[200],
+      child: const Center(
+        child: Icon(Icons.book, size: 40, color: Colors.grey),
+      ),
+    );
+  }
+
+  // ───────── Submit ─────────
   Future<void> _submitReview(user) async {
     setState(() => _isSubmitting = true);
 

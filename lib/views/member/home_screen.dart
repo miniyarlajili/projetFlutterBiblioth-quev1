@@ -3,12 +3,15 @@ import '../auth/login_screen.dart';
 import '../../utils/constants.dart';
 import '../member/loans_screen.dart';
 import '../../models/book_model.dart';
+import '../member/profile_screen.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../services/book_service.dart';
-import '../visitor/catalogue_screen.dart';
 import '../../controllers/auth_controller.dart';
+import 'package:bookshare/views/member/catalogue_screen.dart';
 import 'package:bookshare/views/visitor/book_detail_screen.dart';
+
+//import '../visitor/catalogue_screen.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -31,7 +34,7 @@ class _HomeScreenState extends State<HomeScreen> {
       const CatalogueScreen(),
       const LoansScreen(),
       const _EvenementsPlaceholder(),
-      const _MessagesPlaceholder(),
+      const ProfileScreen(), // ✅ Profil remplace Messages
     ];
 
     return Scaffold(
@@ -74,9 +77,9 @@ class _HomeScreenState extends State<HomeScreen> {
           label: 'Événements',
         ),
         BottomNavigationBarItem(
-          icon: Icon(Icons.chat_bubble_outline),
-          activeIcon: Icon(Icons.chat_bubble),
-          label: 'Messages',
+          icon: Icon(Icons.person_outline),
+          activeIcon: Icon(Icons.person),
+          label: 'Profil',
         ),
       ],
     );
@@ -97,18 +100,13 @@ class _HomeTab extends StatelessWidget {
     return SafeArea(
       child: CustomScrollView(
         slivers: [
-          // ── Header ───────────────────────────────────────
           SliverToBoxAdapter(child: _buildHeader(context)),
-
-          // ── Barre de recherche ───────────────────────────
           const SliverToBoxAdapter(child: _SearchBar()),
-
-          // ── Stats ────────────────────────────────────────
           SliverToBoxAdapter(
             child: _StatsBar(userId: user?.uid ?? ''),
           ),
 
-          // ── SECTION 1 : RECOMMANDÉS PAR LES MEMBRES (TOP RATED) ──
+          // ── SECTION 1 : TOP RATED ─────────────────────────
           const SliverToBoxAdapter(
             child: Padding(
               padding: EdgeInsets.fromLTRB(16, 20, 16, 8),
@@ -127,13 +125,11 @@ class _HomeTab extends StatelessWidget {
               ),
             ),
           ),
-
-          // ── Liste horizontale top rated ──────────────────────
           SliverToBoxAdapter(
-            child: StreamBuilder<List<BookModel>>(
-              stream: bookService.getTopRatedBooksStream(),
+            child: FutureBuilder<List<BookModel>>(
+              future: bookService.getTopRatedBooks(),
               builder: (context, snapshot) {
-                if (!snapshot.hasData) {
+                if (snapshot.connectionState == ConnectionState.waiting) {
                   return const Center(
                     child: Padding(
                       padding: EdgeInsets.all(32),
@@ -141,8 +137,7 @@ class _HomeTab extends StatelessWidget {
                     ),
                   );
                 }
-                final books = snapshot.data!;
-                if (books.isEmpty) {
+                if (!snapshot.hasData || snapshot.data!.isEmpty) {
                   return const Padding(
                     padding: EdgeInsets.all(32),
                     child: Center(
@@ -153,6 +148,7 @@ class _HomeTab extends StatelessWidget {
                     ),
                   );
                 }
+                final books = snapshot.data!;
                 return SizedBox(
                   height: 280,
                   child: ListView.builder(
@@ -164,7 +160,8 @@ class _HomeTab extends StatelessWidget {
                       onTap: () => Navigator.push(
                         context,
                         MaterialPageRoute(
-                          builder: (_) => BookDetailScreen(book: books[index]),
+                          builder: (_) =>
+                              BookDetailScreen(book: books[index]),
                         ),
                       ),
                     ),
@@ -174,7 +171,7 @@ class _HomeTab extends StatelessWidget {
             ),
           ),
 
-          // ── SECTION 2 : RECOMMANDÉS POUR VOUS (PERSONNALISÉ) ──
+          // ── SECTION 2 : RECOMMANDÉS POUR VOUS ────────────
           const SliverToBoxAdapter(
             child: Padding(
               padding: EdgeInsets.fromLTRB(16, 20, 16, 8),
@@ -193,14 +190,12 @@ class _HomeTab extends StatelessWidget {
               ),
             ),
           ),
-
-          // ── Liste verticale recommandations personnalisées ───
           SliverToBoxAdapter(
-            child: StreamBuilder<List<BookModel>>(
-              stream: bookService.getRecommandationsStream(
-                  user?.genresFavoris ?? []),
+            child: FutureBuilder<List<BookModel>>(
+              future: bookService
+                  .getRecommandations(user?.genresFavoris ?? []),
               builder: (context, snapshot) {
-                if (!snapshot.hasData) {
+                if (snapshot.connectionState == ConnectionState.waiting) {
                   return const Center(
                     child: Padding(
                       padding: EdgeInsets.all(32),
@@ -208,8 +203,7 @@ class _HomeTab extends StatelessWidget {
                     ),
                   );
                 }
-                final books = snapshot.data!;
-                if (books.isEmpty) {
+                if (!snapshot.hasData || snapshot.data!.isEmpty) {
                   return const Padding(
                     padding: EdgeInsets.all(32),
                     child: Center(
@@ -220,6 +214,7 @@ class _HomeTab extends StatelessWidget {
                     ),
                   );
                 }
+                final books = snapshot.data!;
                 return ListView.builder(
                   shrinkWrap: true,
                   physics: const NeverScrollableScrollPhysics(),
@@ -230,7 +225,8 @@ class _HomeTab extends StatelessWidget {
                     onTap: () => Navigator.push(
                       context,
                       MaterialPageRoute(
-                        builder: (_) => BookDetailScreen(book: books[index]),
+                        builder: (_) =>
+                            BookDetailScreen(book: books[index]),
                       ),
                     ),
                   ),
@@ -254,12 +250,9 @@ class _HomeTab extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(
+                const Text(
                   'Bonjour 👋',
-                  style: const TextStyle(
-                    fontSize: 14,
-                    color: Colors.white70,
-                  ),
+                  style: TextStyle(fontSize: 14, color: Colors.white70),
                 ),
                 Text(
                   '${user?.nom?.split(' ').first ?? 'Membre'} !',
@@ -272,7 +265,6 @@ class _HomeTab extends StatelessWidget {
               ],
             ),
           ),
-          // Avatar + notification dot
           Stack(
             children: [
               CircleAvatar(
@@ -302,7 +294,6 @@ class _HomeTab extends StatelessWidget {
               ),
             ],
           ),
-          // Logout
           IconButton(
             onPressed: () async {
               await context.read<AuthController>().logout();
@@ -321,9 +312,7 @@ class _HomeTab extends StatelessWidget {
   }
 }
 
-// ══════════════════════════════════════════════════════════════
-// TOP RATED CARD (horizontal scroll)
-// ══════════════════════════════════════════════════════════════
+// ── Top Rated Card ─────────────────────────────────────────────
 class _TopRatedCard extends StatelessWidget {
   final BookModel book;
   final VoidCallback onTap;
@@ -351,7 +340,6 @@ class _TopRatedCard extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // Couverture
             ClipRRect(
               borderRadius: const BorderRadius.only(
                 topLeft: Radius.circular(16),
@@ -411,11 +399,8 @@ class _TopRatedCard extends StatelessWidget {
                     child: Row(
                       mainAxisSize: MainAxisSize.min,
                       children: [
-                        const Icon(
-                          Icons.star,
-                          size: 12,
-                          color: Color(0xFFFFB300),
-                        ),
+                        const Icon(Icons.star,
+                            size: 12, color: Color(0xFFFFB300)),
                         const SizedBox(width: 2),
                         Text(
                           book.rating.toStringAsFixed(1),
@@ -438,7 +423,7 @@ class _TopRatedCard extends StatelessWidget {
   }
 }
 
-// ── Barre de recherche ──────────────────────────────────────────
+// ── Search Bar ─────────────────────────────────────────────────
 class _SearchBar extends StatelessWidget {
   const _SearchBar();
 
@@ -453,8 +438,8 @@ class _SearchBar extends StatelessWidget {
           color: Colors.white,
           borderRadius: BorderRadius.circular(30),
         ),
-        child: Row(
-          children: const [
+        child: const Row(
+          children: [
             Icon(Icons.search, color: AppColors.textMuted, size: 20),
             SizedBox(width: 8),
             Text(
@@ -484,7 +469,6 @@ class _StatsBar extends StatelessWidget {
           padding: const EdgeInsets.fromLTRB(16, 16, 16, 0),
           child: Row(
             children: [
-              // En cours — bleu
               Expanded(
                 child: _StatCard(
                   value: stats['enCours']!,
@@ -494,7 +478,6 @@ class _StatsBar extends StatelessWidget {
                 ),
               ),
               const SizedBox(width: 12),
-              // Retournés — vert
               Expanded(
                 child: _StatCard(
                   value: stats['retournés']!,
@@ -504,7 +487,6 @@ class _StatsBar extends StatelessWidget {
                 ),
               ),
               const SizedBox(width: 12),
-              // Réservés — orange
               Expanded(
                 child: _StatCard(
                   value: stats['notifications']!,
@@ -570,7 +552,7 @@ class _StatCard extends StatelessWidget {
   }
 }
 
-// ── Carte Livre (version verticale) ────────────────────────────
+// ── Carte Livre (verticale) ─────────────────────────────────────
 class _Cartelivre extends StatelessWidget {
   final BookModel book;
   final VoidCallback onTap;
@@ -597,10 +579,8 @@ class _Cartelivre extends StatelessWidget {
         ),
         child: Row(
           children: [
-            // Couverture
             _CouvertureLivre(imageUrl: book.imageUrl, size: 60),
             const SizedBox(width: 12),
-            // Infos
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -631,7 +611,6 @@ class _Cartelivre extends StatelessWidget {
               ),
             ),
             const SizedBox(width: 8),
-            // Bouton action
             _BoutonAction(statut: book.statut),
           ],
         ),
@@ -780,10 +759,7 @@ class _BoutonAction extends StatelessWidget {
           borderRadius: BorderRadius.circular(20),
         ),
         elevation: 0,
-        textStyle: const TextStyle(
-          fontSize: 12,
-          fontWeight: FontWeight.bold,
-        ),
+        textStyle: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold),
       ),
       child: Text(label),
     );
@@ -797,14 +773,5 @@ class _EvenementsPlaceholder extends StatelessWidget {
   @override
   Widget build(BuildContext context) => const Scaffold(
         body: Center(child: Text('Événements — bientôt disponible')),
-      );
-}
-
-class _MessagesPlaceholder extends StatelessWidget {
-  const _MessagesPlaceholder();
-
-  @override
-  Widget build(BuildContext context) => const Scaffold(
-        body: Center(child: Text('Messages — bientôt disponible')),
       );
 }

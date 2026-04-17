@@ -40,6 +40,7 @@ dependencies:
   firebase_storage: ^12.3.2
   intl: ^0.18.1
   mobile_scanner: ^5.2.3
+  image_picker: ^1.2.1
 
   # State Management
   provider: ^6.1.2
