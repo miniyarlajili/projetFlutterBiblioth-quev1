@@ -25,10 +25,10 @@ class ProfileScreen extends StatelessWidget {
           SliverAppBar(
             expandedHeight: 200,
             pinned: true,
-            backgroundColor: AppColors.primary,
+            backgroundColor: const Color(0xFF1E5AA8),
             flexibleSpace: FlexibleSpaceBar(
               background: Container(
-                color: AppColors.primary,
+                color: const Color(0xFF1E5AA8),
                 child: Column(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [

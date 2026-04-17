@@ -3,8 +3,6 @@ import 'isbn_scanner_screen.dart';
 import '../../models/book_model.dart';
 import 'package:flutter/material.dart';
 import '../../services/book_service.dart';
-import 'package:image_picker/image_picker.dart';
-import 'package:firebase_storage/firebase_storage.dart';
 import '../../controllers/isbn_scanner_controller.dart';
 
 class AddBookScreen extends StatefulWidget {
@@ -19,12 +17,10 @@ class _AddBookScreenState extends State<AddBookScreen> {
   final _auteur = TextEditingController();
   final _copies = TextEditingController(text: "1");
 
-  final BookService service = BookService();
   final IsbnScannerController scanner = IsbnScannerController();
-  final ImagePicker picker = ImagePicker();
+  final BookService service = BookService();
 
   bool loading = false;
-  File? _imageFile;
 
   String _selectedGenre = "Roman";
 
@@ -37,28 +33,7 @@ class _AddBookScreenState extends State<AddBookScreen> {
     "Autre",
   ];
 
-  // ───────── PICK IMAGE ─────────
-  Future<void> pickImage() async {
-    final picked = await picker.pickImage(source: ImageSource.gallery);
-
-    if (picked != null) {
-      setState(() {
-        _imageFile = File(picked.path);
-      });
-    }
-  }
-
-  // ───────── UPLOAD IMAGE ─────────
-  Future<String?> uploadImage(File file) async {
-    final ref = FirebaseStorage.instance
-        .ref()
-        .child("books/${DateTime.now().millisecondsSinceEpoch}.jpg");
-
-    await ref.putFile(file);
-    return await ref.getDownloadURL();
-  }
-
-  // ───────── ISBN SCANNER ─────────
+  // ───────── SCANNER ─────────
   void fillFromScanner(String isbn) async {
     setState(() => loading = true);
 
@@ -72,29 +47,18 @@ class _AddBookScreenState extends State<AddBookScreen> {
     setState(() => loading = false);
   }
 
-  // ───────── SAVE BOOK ─────────
+  // ───────── SAVE ─────────
   Future<void> save() async {
-    setState(() => loading = true);
-
-    String? imageUrl;
-
-    if (_imageFile != null) {
-      imageUrl = await uploadImage(_imageFile!);
-    }
-
     final book = BookModel(
       id: "",
       titre: _titre.text,
       auteur: _auteur.text,
       genre: _selectedGenre,
-      imageUrl: imageUrl,
       statut: "disponible",
       dateAjout: DateTime.now(),
     );
 
     await service.addBook(book);
-
-    setState(() => loading = false);
 
     if (mounted) Navigator.pop(context);
   }
@@ -113,38 +77,7 @@ class _AddBookScreenState extends State<AddBookScreen> {
         child: Column(
           children: [
 
-            // ───────── IMAGE PICKER ─────────
-            GestureDetector(
-              onTap: pickImage,
-              child: Container(
-                margin: const EdgeInsets.all(16),
-                height: 180,
-                width: double.infinity,
-                decoration: BoxDecoration(
-                  color: Colors.grey.shade200,
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                child: _imageFile == null
-                    ? const Column(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          Icon(Icons.add_a_photo, size: 40),
-                          SizedBox(height: 8),
-                          Text("Ajouter une image"),
-                        ],
-                      )
-                    : ClipRRect(
-                        borderRadius: BorderRadius.circular(12),
-                        child: Image.file(
-                          _imageFile!,
-                          fit: BoxFit.cover,
-                          width: double.infinity,
-                        ),
-                      ),
-              ),
-            ),
-
-            // ───────── SCANNER ─────────
+            // ───────── SCANNER CARD ─────────
             Container(
               margin: const EdgeInsets.all(16),
               padding: const EdgeInsets.all(16),
@@ -162,9 +95,8 @@ class _AddBookScreenState extends State<AddBookScreen> {
                   const Text(
                     "Scanner ISBN automatique",
                     style: TextStyle(
-                      color: Colors.white,
-                      fontWeight: FontWeight.bold,
-                    ),
+                        color: Colors.white,
+                        fontWeight: FontWeight.bold),
                   ),
 
                   const SizedBox(height: 10),
@@ -190,6 +122,7 @@ class _AddBookScreenState extends State<AddBookScreen> {
               ),
             ),
 
+            // ───────── FIELDS ─────────
             _field("Titre du livre", _titre),
             _field("Auteur", _auteur),
             _field("Nombre de copies", _copies,
@@ -198,16 +131,14 @@ class _AddBookScreenState extends State<AddBookScreen> {
             const SizedBox(height: 10),
 
             // ───────── GENRE ─────────
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 16),
+            const Padding(
+              padding: EdgeInsets.symmetric(horizontal: 16),
               child: Align(
                 alignment: Alignment.centerLeft,
-                child: const Text(
+                child: Text(
                   "Genre",
                   style: TextStyle(
-                    fontWeight: FontWeight.bold,
-                    fontSize: 16,
-                  ),
+                      fontWeight: FontWeight.bold, fontSize: 16),
                 ),
               ),
             ),
@@ -274,9 +205,8 @@ class _AddBookScreenState extends State<AddBookScreen> {
                       : const Text(
                           "Enregistrer",
                           style: TextStyle(
-                            color: Colors.white,
-                            fontWeight: FontWeight.bold,
-                          ),
+                              color: Colors.white,
+                              fontWeight: FontWeight.bold),
                         ),
                 ),
               ),

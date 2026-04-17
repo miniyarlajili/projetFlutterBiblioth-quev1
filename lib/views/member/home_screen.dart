@@ -49,7 +49,7 @@ class _HomeScreenState extends State<HomeScreen> {
       currentIndex: _selectedIndex,
       onTap: (i) => setState(() => _selectedIndex = i),
       type: BottomNavigationBarType.fixed,
-      selectedItemColor: AppColors.primary,
+      selectedItemColor: const Color(0xFF1E5AA8),
       unselectedItemColor: AppColors.textMuted,
       selectedFontSize: 11,
       unselectedFontSize: 10,
@@ -171,69 +171,69 @@ class _HomeTab extends StatelessWidget {
             ),
           ),
 
-          // ── SECTION 2 : RECOMMANDÉS POUR VOUS ────────────
-          const SliverToBoxAdapter(
-            child: Padding(
-              padding: EdgeInsets.fromLTRB(16, 20, 16, 8),
-              child: Row(
-                children: [
-                  Text('✨ ', style: TextStyle(fontSize: 16)),
-                  Text(
-                    'Recommandés pour vous',
-                    style: TextStyle(
-                      fontSize: 15,
-                      fontWeight: FontWeight.bold,
-                      color: AppColors.textDark,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ),
-          SliverToBoxAdapter(
-            child: FutureBuilder<List<BookModel>>(
-              future: bookService
-                  .getRecommandations(user?.genresFavoris ?? []),
-              builder: (context, snapshot) {
-                if (snapshot.connectionState == ConnectionState.waiting) {
-                  return const Center(
-                    child: Padding(
-                      padding: EdgeInsets.all(32),
-                      child: CircularProgressIndicator(),
-                    ),
-                  );
-                }
-                if (!snapshot.hasData || snapshot.data!.isEmpty) {
-                  return const Padding(
-                    padding: EdgeInsets.all(32),
-                    child: Center(
-                      child: Text(
-                        'Aucune recommandation pour l\'instant',
-                        style: TextStyle(color: AppColors.textMuted),
-                      ),
-                    ),
-                  );
-                }
-                final books = snapshot.data!;
-                return ListView.builder(
-                  shrinkWrap: true,
-                  physics: const NeverScrollableScrollPhysics(),
-                  padding: const EdgeInsets.symmetric(horizontal: 16),
-                  itemCount: books.length,
-                  itemBuilder: (context, index) => _Cartelivre(
-                    book: books[index],
-                    onTap: () => Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                        builder: (_) =>
-                            BookDetailScreen(book: books[index]),
-                      ),
-                    ),
-                  ),
-                );
-              },
-            ),
-          ),
+          // // ── SECTION 2 : RECOMMANDÉS POUR VOUS ────────────
+          // const SliverToBoxAdapter(
+          //   child: Padding(
+          //     padding: EdgeInsets.fromLTRB(16, 20, 16, 8),
+          //     child: Row(
+          //       children: [
+          //         Text('✨ ', style: TextStyle(fontSize: 16)),
+          //         Text(
+          //           'Recommandés pour vous',
+          //           style: TextStyle(
+          //             fontSize: 15,
+          //             fontWeight: FontWeight.bold,
+          //             color: AppColors.textDark,
+          //           ),
+          //         ),
+          //       ],
+          //     ),
+          //   ),
+          // ),
+          // SliverToBoxAdapter(
+          //   child: FutureBuilder<List<BookModel>>(
+          //     future: bookService
+          //         .getRecommandations(user?.genresFavoris ?? []),
+          //     builder: (context, snapshot) {
+          //       if (snapshot.connectionState == ConnectionState.waiting) {
+          //         return const Center(
+          //           child: Padding(
+          //             padding: EdgeInsets.all(32),
+          //             child: CircularProgressIndicator(),
+          //           ),
+          //         );
+          //       }
+          //       if (!snapshot.hasData || snapshot.data!.isEmpty) {
+          //         return const Padding(
+          //           padding: EdgeInsets.all(32),
+          //           child: Center(
+          //             child: Text(
+          //               'Aucune recommandation pour l\'instant',
+          //               style: TextStyle(color: AppColors.textMuted),
+          //             ),
+          //           ),
+          //         );
+          //       }
+          //       final books = snapshot.data!;
+          //       return ListView.builder(
+          //         shrinkWrap: true,
+          //         physics: const NeverScrollableScrollPhysics(),
+          //         padding: const EdgeInsets.symmetric(horizontal: 16),
+          //         itemCount: books.length,
+          //         itemBuilder: (context, index) => _Cartelivre(
+          //           book: books[index],
+          //           onTap: () => Navigator.push(
+          //             context,
+          //             MaterialPageRoute(
+          //               builder: (_) =>
+          //                   BookDetailScreen(book: books[index]),
+          //             ),
+          //           ),
+          //         ),
+          //       );
+          //     },
+          //   ),
+          // ),
           const SliverToBoxAdapter(child: SizedBox(height: 20)),
         ],
       ),
@@ -242,7 +242,7 @@ class _HomeTab extends StatelessWidget {
 
   Widget _buildHeader(BuildContext context) {
     return Container(
-      color: AppColors.primary,
+      color:  const Color(0xFF1E5AA8),
       padding: const EdgeInsets.fromLTRB(16, 16, 16, 20),
       child: Row(
         children: [
@@ -430,7 +430,7 @@ class _SearchBar extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      color: AppColors.primary,
+      color: const Color(0xFF1E5AA8),
       padding: const EdgeInsets.fromLTRB(16, 0, 16, 20),
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
